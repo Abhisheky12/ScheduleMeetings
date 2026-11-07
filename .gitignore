@@ -1,0 +1,13 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Google OAuth tokens
+tokens.json
+
+# Dependencies
+node_modules/
+
+# Build files
+dist/
