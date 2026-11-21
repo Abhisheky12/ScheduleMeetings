@@ -3,6 +3,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import 'dotenv/config';
 
+
 const app = express();
 
 
@@ -13,9 +14,11 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 
+
+  
 app.get('/auth', (req, res) => {  
 
-    const url = oauth2Client.generateAuthUrl({
+    const url = oauth2Client.generateAuthUrl({  
         access_type: "offline",
         scope: [
             "https://www.googleapis.com/auth/calendar"

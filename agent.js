@@ -7,10 +7,21 @@ import {
     MemorySaver
 } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import readline from "node:readline/promises";
+import readline from "node:readline/promises";     
 import { stdin as input, stdout as output } from "node:process";
 import "dotenv/config";
 import { z } from "zod";
+import { google } from "googleapis";
+import tokens from './tokens.json' with { type: 'json' };
+
+
+const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+);
+
+oauth2Client.setCredentials(tokens);
 
 // ------------------------------------
 // 1. CREATE MEETING TOOL
@@ -19,7 +30,7 @@ import { z } from "zod";
 
 const createMeetingTool = tool(
     async () => {
-        console.log("\n CREATE MEETING TOOL EXECUTED!");  
+        console.log("\n CREATE MEETING TOOL EXECUTED!");
 
         return "Meeting has been created successfully.";
     },
@@ -35,26 +46,71 @@ const createMeetingTool = tool(
 // 2. GET MEETING TOOL
 // ------------------------------------
 
-const getEventTool = tool(
-    async () => {
-        console.log("\n GET MEETING TOOL EXECUTED!");
+const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-        return {
-            title: "Meeting with Abhishek",
-            date: "9th August 2025",
-            time: "2 PM",
-            location: "Google Meet"
-        };
+
+
+
+const getEventTool = tool(
+    async (params) => {
+
+        try {
+            const { q, timeMin, timeMax } = params;
+
+            console.log(params);
+
+            const response = await calendar.events.list({
+                calendarId: 'primary',
+                q: q,
+                timeMin: timeMin,
+                timeMax: timeMax
+            });
+
+            const result = response.data.items?.map((event) => {
+                return {
+                    id: event.id,
+                    summary: event.summary,
+                    status: event.status,
+                    organiser: event.organizer,
+                    start: event.start,
+                    end: event.end,
+                    attendees: event.attendees,
+                    meetingLink: event.hangoutLink,
+                    eventType: event.eventType
+                };
+            });
+
+            return JSON.stringify(result);
+
+        } catch (err) {
+            console.log("ERROR", err);
+
+            return {
+                error: err.message
+            };
+        }
     },
     {
-        name: "get-meeting-event",
-        description:
-            "Use this tool whenever the user asks to retrieve, check, or get details of an existing meeting.",
-        schema: z.object({})
+        name: "get-events",
+        description: "Call to get the calendar events.",
+        schema: z.object({
+            q: z.string().optional().describe(
+                "Free-text query to search Google Calendar events in summary, description, location, attendee display name, attendee email, organizer display name, or organizer email."
+            ),
+            timeMin: z.string().optional().describe(
+                "The lower time boundary for events in RFC3339 datetime format with timezone."
+            ),
+            timeMax: z.string().optional().describe(
+                "The upper time boundary for events in RFC3339 datetime format with timezone."
+            )
+        })
     }
 );
 
-// ------------------------------------
+
+
+
+// ------------------------------------    
 // 3. REGISTER TOOLS
 // ------------------------------------
 
